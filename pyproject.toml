@@ -24,7 +24,11 @@ dynamic = ['version']
 dev = ["databricks-connect>=16.0, <17",
        "ipykernel>=6.29.5, <7",
        "pip>=25.0.1, <26",
-       "pre-commit>=4.1.0, <5"]
+       "pre-commit>=4.1.0, <5",
+       "tqdm==2.2.3",
+       "plotly>=6.3, <7",
+       "nbformat>=4.2.0"
+       ]
 
 test = ["pre-commit>=4.1.0, <5",
        "pytest>=8.0.0, <9",
