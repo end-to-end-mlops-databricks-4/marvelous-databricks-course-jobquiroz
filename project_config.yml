@@ -12,6 +12,13 @@ dev:
 #experiment_name_custom: /Shared/house-prices-custom
 #experiment_name_fe: /Shared/house-prices-fe
 
+data_parameters:
+  # one week of history (24 hours * 7 days)
+  input_seq_len: 168
+  step_size: 6
+  min_date: 2025-06-01
+  max_date: 2025-08-31
+  cutoff_date: 2025-08-01
 #parameters:
 #  learning_rate: 0.01
 #   n_estimators: 1000
@@ -30,8 +37,8 @@ dev:
   # - GrLivArea
   # - GarageCars
 
-# cat_features:
-#   - MSZoning
+cat_features:
+   - StationID
 #   - Street
 #   - Alley
 #   - LotShape
@@ -50,4 +57,4 @@ dev:
 #   - SaleType
 #   - SaleCondition
 
-# target: SalePrice
+target: target_rides_next_hour
