@@ -12,11 +12,16 @@ tasks:
       - uv venv -p {{.PYTHON_VERSION}} .venv
     silent: false
 
+  sync-dev-clean-cache:
+    desc: Sync project dependencies with optionals
+    cmds:
+      - uv cache clean
+      - rm -rf .venv uv.lock
+      - uv sync --extra dev
   sync-dev:
     desc: Sync project dependencies with optionals
     cmds:
-      - rm -rf .venv
-#      - task: create-venv
+      - rm -rf .venv uv.lock
       - uv sync --extra dev
 
   sync-test:
