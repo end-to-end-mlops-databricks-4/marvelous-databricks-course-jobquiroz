@@ -27,7 +27,7 @@ class DataProcessor:
 
     def read_data(self, min_date: str, max_date: str) -> SparkDataFrame:
         """Read the data from the table."""
-        columns = ["Ciclo_Estacion_Retiro", "Fecha_Retiro", "Hora_Retiro"]
+        columns = list(self.config.original_columns.values())
         # Read table, select columns and filter by date
         df = (self.spark.table(f"{self.config.catalog_name}.{self.config.schema_name}.{self.table_name}")
                     .select(columns)
@@ -38,10 +38,9 @@ class DataProcessor:
 
     def preprocess_data(self, df: SparkDataFrame) -> SparkDataFrame:
         """Preprocess the data."""
-        # Rename the columns
-        df = df.withColumnRenamed("Ciclo_Estacion_Retiro", "StationID")
-        df = df.withColumnRenamed("Fecha_Retiro", "Date")
-        df = df.withColumnRenamed("Hora_Retiro", "Hour")
+        # Rename the columns using the mapping from config
+        for new_name, original_name in self.config.original_columns.items():
+            df = df.withColumnRenamed(original_name, new_name)
 
         # There is something wrong with the data, the HourDate is a datetime, but the Date is wrong.
         # For example, when Date is 2025-06-01, the Hour is 2025-09-05 12:20:10
@@ -54,28 +53,34 @@ class DataProcessor:
         # 2. Round the datetime to the nearest hour
         # 3. Convert the datetime to a date
 
-        # Convert Date and Hour to strings
-        df = df.withColumn("Date", F.col("Date").cast("string"))
-        df = df.withColumn("Hour", F.col("Hour").cast("string"))
+        # Convert temporary columns to strings
+        for temp_col in self.config.temporary_columns:
+            df = df.withColumn(temp_col, F.col(temp_col).cast("string"))
 
         # Concatenate them, but for Hour we only want the time part (e.g. 12:20:10), only the last 8 characters
-        df = df.withColumn("PickUpDateTime", F.concat(F.col("Date"), F.substring(F.col("Hour"), -9, 9)))
+        # Assuming Date is first and Hour is second in temporary_columns
+        date_col, hour_col = self.config.temporary_columns[0], self.config.temporary_columns[1]
+        pickup_datetime_col = self.config.datetime_features[0] # This is the new column name (PickUpDateTime)
+        df = df.withColumn(pickup_datetime_col, F.concat(F.col(date_col), F.substring(F.col(hour_col), -9, 9)))
 
         # Convert PickUpDateTime to datetime
-        df = df.withColumn("PickUpDateTime", F.to_timestamp("PickUpDateTime"))
+        df = df.withColumn(pickup_datetime_col, F.to_timestamp(pickup_datetime_col))
 
         # Floor the datetime to the nearest hour
-        df = df.withColumn("PickUpDateTime", F.date_trunc("hour", F.col("PickUpDateTime")))
+        df = df.withColumn(pickup_datetime_col, F.date_trunc("hour", F.col(pickup_datetime_col)))
 
         # Keep only the columns we need
-        df = df.select("StationID", "PickUpDateTime")
+        station_id_col = self.config.cat_features[0]
+        df = df.select(station_id_col, pickup_datetime_col)
 
         return df
 
     def get_agg_data(self, df: SparkDataFrame) -> pd.DataFrame:
         """Get the aggregated data."""
         # Count the number of rides
-        df = df.groupby(["StationID", "PickUpDateTime"]).count().withColumnRenamed("count", "Rides")
+        station_id_col = self.config.cat_features[0]
+        pickup_datetime_col = self.config.datetime_features[0]
+        df = df.groupby([station_id_col, pickup_datetime_col]).count().withColumnRenamed("count", "Rides")
 
         # Sort by Rides descending
         df = df.sort(F.desc("Rides"))
@@ -90,15 +95,17 @@ class DataProcessor:
 
     def add_missing_slots(self, df: pd.DataFrame) -> pd.DataFrame:
         """Add the missing slots of time."""
-        location_ids = df['StationID'].unique()
-        full_range = pd.date_range(df['PickUpDateTime'].min(), df['PickUpDateTime'].max(), freq='h')
+        station_id_col = self.config.cat_features[0]
+        pickup_datetime_col = self.config.datetime_features[0]
+        location_ids = df[station_id_col].unique()
+        full_range = pd.date_range(df[pickup_datetime_col].min(), df[pickup_datetime_col].max(), freq='h')
         output = pd.DataFrame()
         for location_id in tqdm(location_ids):
-            location_df = df[df['StationID'] == location_id]
-            location_df = location_df.set_index('PickUpDateTime')
+            location_df = df[df[station_id_col] == location_id]
+            location_df = location_df.set_index(pickup_datetime_col)
             location_df.index = pd.DatetimeIndex(location_df.index)
             location_df = location_df.reindex(full_range, fill_value=0)
-            location_df['StationID'] = location_id
+            location_df[station_id_col] = location_id
             output = pd.concat([output, location_df])
         
         return output.reset_index(names=['Date'])
@@ -130,9 +137,11 @@ class DataProcessor:
         Slices and transposes data from time-series format into a (features, target)
         format that we can use to train Supervised ML models
         """
-        assert set(ts_data.columns) == {'Date', 'Rides', 'StationID'}
+        station_id_col = self.config.cat_features[0]
+        expected_columns = {'Date', 'Rides', station_id_col}
+        assert set(ts_data.columns) == expected_columns
 
-        location_ids = ts_data['StationID'].unique()
+        location_ids = ts_data[station_id_col].unique()
         features = pd.DataFrame()
         targets = pd.DataFrame()
         
@@ -140,7 +149,7 @@ class DataProcessor:
 
             # keep only ts data for this `location_id`
             ts_data_one_location = ts_data.loc[
-                ts_data.StationID == location_id, 
+                ts_data[station_id_col] == location_id, 
                 ['Date', 'Rides']
             ]
 
@@ -172,7 +181,7 @@ class DataProcessor:
                 columns=[f'rides_previous_{i+1}_hour' for i in reversed(range(input_seq_len))]
             )
             features_one_location['pickup_hour'] = pickup_hours
-            features_one_location['pickup_location_id'] = location_id
+            features_one_location[f'pickup_{station_id_col.lower()}_id'] = location_id
 
             # numpy -> pandas
             targets_one_location = pd.DataFrame(y, columns=[f'target_rides_next_hour'])

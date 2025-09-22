@@ -15,6 +15,9 @@ class ProjectConfig(BaseModel):
     #parameters: dict[str, Any]
     data_parameters: dict[str, Any]
     #num_features: list[str]
+    original_columns: dict[str, str]
+    temporary_columns: list[str]
+    datetime_features: list[str]
     cat_features: list[str]
     target: str
     catalog_name: str

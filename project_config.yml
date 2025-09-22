@@ -37,24 +37,19 @@ data_parameters:
   # - GrLivArea
   # - GarageCars
 
+original_columns:
+  StationID: Ciclo_Estacion_Retiro
+  Date: Fecha_Retiro
+  Hour: Hora_Retiro
+
+temporary_columns:
+  - Date
+  - Hour
+
+datetime_features:
+  - PickUpDateTime
+
 cat_features:
    - StationID
-#   - Street
-#   - Alley
-#   - LotShape
-#   - LandContour
-#   - Neighborhood
-#   - Condition1
-#   - BldgType
-#   - HouseStyle
-#   - RoofStyle
-#   - Exterior1st
-#   - Exterior2nd
-#   - MasVnrType
-#   - Foundation
-#   - Heating
-#   - CentralAir
-#   - SaleType
-#   - SaleCondition
 
 target: target_rides_next_hour

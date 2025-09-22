@@ -54,8 +54,7 @@ train_df, test_df = data_processor.split_data(pdf, config.data_parameters["cutof
 logger.info("Saving data into Databricks tables...")
 data_processor.save_to_catalog(train_df, test_df)
 
+# COMMAND ----------
 # Enable change data feed (only once!)
 logger.info("Enabling change data feed...")
 data_processor.enable_change_data_feed()
-
-# COMMAND ----------
