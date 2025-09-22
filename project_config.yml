@@ -1,0 +1,55 @@
+#prd:
+#  catalog_name: mlops_prd
+#  schema_name: house_prices
+acc:
+  catalog_name: mlops_acc
+  schema_name: jobquiro
+dev:
+  catalog_name: mlops_dev
+  schema_name: jobquiro
+
+#experiment_name_basic: /Shared/house-prices-basic
+#experiment_name_custom: /Shared/house-prices-custom
+#experiment_name_fe: /Shared/house-prices-fe
+
+data_parameters:
+  # one week of history (24 hours * 7 days)
+  input_seq_len: 168
+  step_size: 6
+  min_date: 2025-06-01
+  max_date: 2025-08-31
+  cutoff_date: 2025-08-01
+#parameters:
+#  learning_rate: 0.01
+#   n_estimators: 1000
+#   max_depth: 6
+
+
+# num_features:
+  # - LotFrontage
+  # - LotArea
+  # - OverallQual
+  # - OverallCond
+  # - YearBuilt
+  # - YearRemodAdd
+  # - MasVnrArea
+  # - TotalBsmtSF
+  # - GrLivArea
+  # - GarageCars
+
+original_columns:
+  StationID: Ciclo_Estacion_Retiro
+  Date: Fecha_Retiro
+  Hour: Hora_Retiro
+
+temporary_columns:
+  - Date
+  - Hour
+
+datetime_features:
+  - PickUpDateTime
+
+cat_features:
+   - StationID
+
+target: target_rides_next_hour
